@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,15 +37,17 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister     ingress.StoreLister
-	recorder        record.EventRecorder
-	ALBIngresses    albingresses.ALBIngresses
-	clusterName     string
-	albNamePrefix   string
-	IngressClass    string
-	lastUpdate      time.Time
-	albSyncInterval time.Duration
-	mutex           sync.RWMutex
+	storeLister             ingress.StoreLister
+	recorder                record.EventRecorder
+	ALBIngresses            albingresses.ALBIngresses
+	clusterName             string
+	restrictScheme          bool
+	restrictSchemeNamespace string
+	albNamePrefix           string
+	IngressClass            string
+	lastUpdate              time.Time
+	albSyncInterval         time.Duration
+	mutex                   sync.RWMutex
 }
 
 var logger *log.Logger
@@ -151,6 +154,7 @@ func (ac *ALBController) update() {
 	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
+		RestrictScheme:      ac.restrictScheme,
 		ALBNamePrefix:       ac.albNamePrefix,
 		Ingresses:           ac.storeLister.Ingress.List(),
 		ALBIngresses:        ac.ALBIngresses,
@@ -243,6 +247,14 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+
+	rs, _ := strconv.ParseBool(os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME"))
+	ns := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE")
+	pf.BoolVar(&ac.restrictScheme, "restrict-scheme", rs, "Restrict the scheme to internal except for whitelisted namespaces (defaults to false)")
+	if ns == "" {
+		ns = "default"
+	}
+	pf.StringVar(&ac.restrictSchemeNamespace, "restrict-scheme-namespace", ns, "The namespace that holds the configmap with the allowed ingresses.")
 
 	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
 	if albSyncParam == "" {
