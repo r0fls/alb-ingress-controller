@@ -37,8 +37,10 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 	if len(ls) < 1 {
 		return nil, nil
 	}
-
 	for _, l := range ls {
+		if l.Current.ListenerArn == nil {
+			continue
+		}
 		lOpts := &listener.ReconcileOptions{
 			Eventf:          rOpts.Eventf,
 			LoadBalancerArn: rOpts.LoadBalancerArn,
@@ -47,7 +49,6 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 		if err := l.Reconcile(lOpts); err != nil {
 			return nil, err
 		}
-
 		rsOpts := &rules.ReconcileOptions{
 			Eventf:       rOpts.Eventf,
 			ListenerArn:  l.Current.ListenerArn,
