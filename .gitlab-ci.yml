@@ -1,0 +1,36 @@
+stages:
+  - build
+  - test
+  - docker
+  - helm
+
+variables:
+  ECR_REPO: raphael.deem/alb-ingress-controller
+  ECR_HOST: 889199535989.dkr.ecr.us-east-1.amazonaws.com
+
+.template: &docker_job
+  image: "golang:alpine"
+  tags:
+    - tm-prod cicd build
+
+docker:
+  stage: build
+  <<: *docker_job
+  script:
+    - apk update
+    - apk add make
+    - apk add docker
+    - apk add curl
+    - apk add git
+      #- curl https://glide.sh/get | sh
+    - mkdir -p /go/src/github.com/coreos/alb-ingress-controller
+    - mv ./* /go/src/github.com/coreos/alb-ingress-controller
+    - mv ./.git /go/src/github.com/coreos/alb-ingress-controller/
+    - cd /go/src/github.com/coreos/alb-ingress-controller
+      #- glide install
+    - make clean && make container
+    - docker tag quay.io/coreos/alb-ingress-controller:1.0-alpha.9 $ECR_HOST/$ECR_REPO:$CI_BUILD_REF
+    - docker run --rm tmhub.io/ticketmaster/ecr-createrepo $ECR_REPO
+    - docker push $ECR_HOST/$ECR_REPO:$CI_BUILD_REF
+  only:
+   - gitlab
