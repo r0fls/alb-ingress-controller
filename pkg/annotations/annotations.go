@@ -93,6 +93,12 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 	}
 
 	a := new(Annotations)
+	a.setScheme(annotations, ingressNamespace, ingressName),
+	if err != nil {
+		// If the scheme is not allowed, don't do anything else
+		cache.Set(cacheKey, err, 1*time.Hour)
+		return nil, err
+	}
 	for _, err := range []error{
 		a.setBackendProtocol(annotations),
 		a.setConnectionIdleTimeout(annotations),
@@ -105,7 +111,6 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setHealthyThresholdCount(annotations),
 		a.setUnhealthyThresholdCount(annotations),
 		a.setPorts(annotations),
-		a.setScheme(annotations, ingressNamespace, ingressName),
 		a.setIpAddressType(annotations),
 		a.setSecurityGroups(annotations),
 		a.setSubnets(annotations, clusterName),
